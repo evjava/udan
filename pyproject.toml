@@ -1,0 +1,27 @@
+[project]
+name = "data-navigator"
+version = "0.1.0"
+description = "A data navigator tool"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "data_navigator"
+module-root = "src"
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
