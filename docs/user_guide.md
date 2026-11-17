@@ -31,8 +31,15 @@ Key concepts:
 ### Installation
 
 ```bash
-pip install udan
+uv tool install udan      # or: pipx install udan
 ```
+
+This installs the `udan` command onto your PATH and fetches Python >= 3.14 when
+it is missing. `uv pip install udan` / `pip install udan` also succeed, but the
+script lands in the discovered environment's `bin/` directory, which is
+typically not on your PATH - so `udan` can look missing despite a successful
+install. In that case activate that environment, or reinstall with
+`uv tool install udan`.
 
 ### Quickstart
 

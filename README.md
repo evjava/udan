@@ -9,9 +9,27 @@ SQL, web, shell, Python AST, and demo datasets.
 
 ## Install
 
+### From PyPI
+
+Requires Python 3.14.
+
+As an isolated tool, with `udan` on PATH:
+
+```bash
+uv tool install udan     # or: pipx install udan
+```
+
+Or into a project environment (the script lands in `.venv/bin/udan`):
+
+```bash
+uv pip install udan
+```
+
+### From a checkout (development)
+
 ```bash
 uv sync
-make install   # also installs the `udan` console script on PATH
+make install   # uv sync + editable install + uv tool install --force
 ```
 
 ## Run a query
