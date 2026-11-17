@@ -1,2 +1,1 @@
-"""Tests for data_navigator package."""
-
+"""Tests for udan package."""

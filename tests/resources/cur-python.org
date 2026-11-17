@@ -1,0 +1,40 @@
+** INFO tqdm
+date: 21.07.23-01:20:09
+tags: 
+https://github.com/tqdm/tqdm#examples-and-advanced-usage
+** checking literal
+date: 14.07.23-15:36:09
+tags: 
+# https://github.com/confluentinc/librdkafka/blob/master/CONFIGURATION.md
+#+begin_src python
+Offset = Literal['smallest', 'earliest', 'beginning', 'largest', 'latest', 'end', 'error']
+
+        if offset not in Offset.__args__:
+            offset = 'latest'
+            logging.warn('Bad offset: %s, expected %s. Fixed for `latest`', offset, Offset.__args__)
+#+end_src
+** DONE python wheel file convention
+date: 07.07.23-14:58:03
+tags: 
+https://peps.python.org/pep-0427/#file-name-convention
+
+| lib-name     | r_preprocessing_lib |
+| lib-version  | 0.0.1               |
+| lang-impl    | py3                 |
+| abi tag      | none                |
+| platform tag | any                 |
+
+<lib_name>-<lib_version>-<lang_impl>-<abi_tag>-<platform_tag>.whl
+** creating module
+date: 25.05.23-16:46:44
+https://wheel.readthedocs.io/en/stable/user_guide.html#building-wheels
+*** setup.py
+#+begin_src python
+import setuptools
+...
+#+end_src
+*** run
+#+begin_src emacs-lisp
+python -m build
+check-wheel-contents dist
+#+end_src

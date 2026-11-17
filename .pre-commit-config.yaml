@@ -1,0 +1,360 @@
+# Hook manifest, read by tools/run_checks.py (`make pre` and the git pre-commit
+# hook installed via `make pre-commit-install`). The pre-commit framework itself
+# is not used - do not run `pre-commit install`.
+fail_fast: true
+hooks:
+  # Ruff hooks - run first
+  - id: ruff-format
+    name: ruff format
+    entry: uv run ruff format src/ tests/ tools/ checks/
+    language: system
+    pass_filenames: false
+    types_or: [python]
+    stages: [pre-commit]
+
+  - id: ruff-check-src
+    name: ruff check
+    entry: uv run ruff check --fix src/
+    language: system
+    pass_filenames: false
+    types_or: [python]
+    stages: [pre-commit]
+
+  - id: ruff-check-tests
+    name: ruff check
+    entry: uv run ruff check --fix --ignore=E731 tests/
+    language: system
+    pass_filenames: false
+    types_or: [python]
+    stages: [pre-commit]
+
+  - id: ruff-complexity
+    name: ruff complexity check (max 15)
+    entry: uv run ruff check --select C90 src/
+    language: system
+    pass_filenames: false
+    types_or: [python]
+    stages: [pre-commit]
+
+  - id: check-unused-exports
+    name: check unused exports in __all__
+    entry: python checks/check-unused-exports.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: check-duplicate-constants
+    name: check duplicate constant definitions across files
+    entry: python checks/check-duplicate-constants.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: check-duplicate-module-assignments
+    name: check duplicate module-level assignments across files
+    entry: python checks/check-duplicate-module-assignments.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: check-duplicate-tools
+    name: check duplicate @annotated function definitions across files
+    entry: python checks/check-duplicate-tools.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: check-unused-api-methods
+    name: check API methods never called outside their implementation
+    entry: python checks/check-unused-api-methods.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: check-impl-public-methods-in-api
+    name: check impl classes declare no public methods missing from their API
+    entry: python checks/check-impl-public-methods-in-api.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: forbid-hasattr-getattr-setattr
+    name: forbid getattr/setattr/hasattr/__dict__ in impl_ files
+    entry: python checks/check-no-hasattr-getattr-setattr.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: codespell
+    name: codespell
+    description: 'Check for common misspellings in text files (bans aforeest typo)'
+    language: system
+    entry: uv run codespell --toml pyproject.toml
+    types_or: [python, markdown, yaml]
+    exclude: ^(Makefile|makefile)$
+
+  - id: forbid-services-as-arg
+    name: forbid services passed as function arguments (inject them via constructor)
+    entry: python checks/check-no-passing-services-as-arg.py
+    language: system
+    pass_filenames: true
+    files: ^src/.*\.py$
+
+  - id: forbid-mutable-globals
+    name: forbid module-level mutable globals
+    entry: python checks/check-mutable-globals.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: forbid-self-in-self-call
+    name: forbid passing object/its attributes to its own method
+    entry: python checks/check-self-in-self-call.py
+    language: system
+    files: ^(src|tests)/.*\.py$
+
+  - id: arg-in-protected-methods
+    name: check ARG (unused arguments) in protected methods only
+    entry: python checks/check-arg-in-protected-methods.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: forbid-arg-noqa
+    name: forbid suppressing ARG (noqa comments or _ prefixed params)
+    entry: python checks/check-no-arg-noqa.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: forbid-test-main
+    name: forbid 'if __name__ == .__main__.' in test files
+    entry: '^if __name__ == .__main__.'
+    language: pygrep
+    files: ^tests/.*\.py$
+
+  - id: forbid-tempfile-in-tests
+    name: forbid 'with tempfile' in test files - use tmp_path fixture instead
+    entry: 'with tempfile\.'
+    language: pygrep
+    files: ^tests/.*\.py$
+
+  - id: forbid-def-test-in-plugins
+    name: forbid 'def test' in tests/plugins_* - these modules only hold tools used by other tests
+    entry: '^def test'
+    language: pygrep
+    files: ^tests/plugins_.*\.py$
+
+  - id: forbid-test-classes
+    name: forbid 'class Test*' in test files - use module-level test functions
+    entry: '^class Test[A-Z]'
+    language: pygrep
+    files: ^tests/.*\.py$
+    exclude: ^tests/([^/]+/)?resources/.*\.py$
+
+  - id: forbid-lazy-imports-in-tests
+    name: forbid lazy imports in test files - hoist imports to module top level
+    entry: python checks/check-no-lazy-imports-in-tests.py
+    language: system
+    files: ^tests/.*\.py$
+    exclude: ^tests/([^/]+/)?resources/.*\.py$
+
+  - id: forbid-imports-in-try-except
+    name: forbid imports inside try/except - import at module top level
+    entry: python checks/check-no-imports-in-try-except.py
+    language: system
+    files: ^(src|tests)/.*\.py$
+    exclude: ^(src|tests)/([^/]+/)?resources/.*\.py$
+
+  - id: forbid-imports-in-plugins-init
+    name: forbid imports in udan_plugins_*/__init__.py - only the plugin description belongs there
+    entry: python checks/check-no-imports-in-plugins-init.py
+    language: system
+    files: ^src/udan_plugins_[^/]+/__init__\.py$
+
+  # todo fix: improve this inspection: exclusions should be line-level, not module-level
+  - id: forbid-import-aliases
+    name: forbid module-level import aliases (import ... as ..., from ... import ... as ...)
+    entry: '^import .* as |^from .* import .* as '
+    language: pygrep
+    files: ^src/.*\.py$
+    # Exclude impl_query_processor.py which imports something under an alias
+    exclude: ^src/udan/core/impl_query_processor\.py$
+
+  - id: forbid-udan-context-in-tests
+    name: forbid UdanContext in test files - use fixtures from conftest.py
+    entry: 'UdanContext\s*\('
+    language: pygrep
+    # the (?:.*/)? reaches the mirror dirs (tests/udan/core among them), the same
+    # idiom forbid-impl-in-api uses for src/udan's subpackages
+    files: ^tests/(?:.*/)?test_.*\.py$
+    exclude: ^(tests/test_core_config.py|tests/test_core_attribute_cache.py|tests/test_core_history.py|tests/plugins_test_preferences.py|tests/test_core_render_history.py)$
+
+  - id: forbid-long-tuples
+    name: forbid tuple annotations with 5+ elements (use dataclass/NamedTuple)
+    entry: bash checks/check-no-long-tuples.sh
+    language: system
+    pass_filenames: false
+    files: ^src/.*\.py$
+
+  - id: check-no-properties-in-api
+    name: check @property usage in API classes
+    entry: python checks/check-no-properties-in-api.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  # the (?:.*/)? reaches the api_/impl_ modules of src/udan's subpackages (udan.core_tools_loading
+  # among them) - the top-level-only form let core_tools_loading's modules escape every api/impl
+  # structure check below
+  - id: forbid-impl-in-api
+    name: forbid impl_ imports inside api_ files
+    entry: 'from udan(?:\.[a-z_]\w+)*\.impl_[a-zA-Z0-9_]+'
+    language: pygrep
+    files: ^src/udan/(?:.*/)?api_.*\.py$
+
+  - id: forbid-impl-in-impl
+    name: forbid impl_ imports inside impl_ files
+    entry: python checks/check-no-impl-in-impl.py
+    language: system
+    files: ^src/udan/(?:.*/)?impl_.*\.py$
+
+  - id: forbid-plugins-in-impl
+    name: forbid plugins_ imports inside impl_ files
+    entry: python checks/check-no-plugins-in-impl.py
+    language: system
+    files: ^src/udan/core/impl_.*\.py$
+
+  - id: forbid-plugins-in-udan
+    name: forbid udan_plugins_* imports inside src/udan - plugins depend on udan, never the reverse
+    entry: '^\s*(from|import)\s+udan_plugins_'
+    language: pygrep
+    files: ^src/udan/.*\.py$
+
+  - id: check-consistent-impl-utils
+    name: check consistent impl_utils imports (impl_utils_X should only be used by impl_X)
+    entry: python checks/check-consistent-impl-utils.py
+    language: system
+    files: ^src/udan/(?:.*/)?impl_.*\.py$
+
+  - id: check-modular-tests
+    name: check udan_plugins_* import only the udan public API (Rule A; Rule B report only)
+    entry: python checks/check-modular-tests.py
+    language: system
+    pass_filenames: false
+    always_run: true
+    stages: [pre-commit]
+
+  - id: forbid-import-underscore
+    name: forbid importing '_' from other modules
+    entry: 'from .* import [^,]*_($|,)'
+    language: pygrep
+    files: ^src/.*\.py$
+
+  - id: forbid-any-annotation
+    name: forbid Any type annotations in src/udan/
+    entry: python checks/check-no-any-annotation.py
+    language: system
+    files: ^src/udan/.*\.py$
+
+  - id: forbid-cast
+    name: forbid cast() usage in non-plugin modules
+    entry: python checks/check-no-cast.py
+    language: system
+    files: ^src/udan/.*\.py$
+
+  - id: forbid-staticmethod
+    name: forbid @staticmethod (extract it to a module-level function with an underscore prefix)
+    entry: python checks/check-no-staticmethod.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: forbid-global-non-protected-functions
+    name: forbid global non-protected functions (rename to _name or decorate)
+    entry: python checks/check-no-global-non-protected-functions.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: check-law-of-demeter
+    name: check Law of Demeter violations (train wrecks)
+    entry: python checks/check-law-of-demeter.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: forbid-type-checking
+    name: forbid TYPE_CHECKING blocks (indicates circular imports) - ALLOWED in api_ files
+    entry: 'from typing import.*\bTYPE_CHECKING\b|if TYPE_CHECKING:'
+    language: pygrep
+    files: ^src/.*\.py$
+    # the (?:/.*)? reaches the api_ files of subpackages (src/udan/core_tools_loading among them)
+    exclude: ^src/(udan|udan_plugins_[^/]+)(?:/.*)?/api_.*\.py$
+
+  - id: forbid-field-validator
+    name: forbid pydantic field_validator - use BeforeValidator/AfterValidator instead
+    entry: 'field_validator'
+    language: pygrep
+    files: ^src/.*\.py$
+
+  - id: require-git-tracked
+    name: require all Python files in src/udan/ to be tracked by git
+    entry: python checks/check-git-tracked.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: check-private-constructor-fields
+    name: check private fields in constructors start with underscore (self.x = x -> self._x = x)
+    entry: python checks/check-private-constructor-fields.py
+    language: system
+    pass_filenames: false
+    files: ^src/.*\.py$
+
+  - id: check-unused-constructor-fields
+    name: check private constructor fields that are never read
+    entry: python checks/check-unused-constructor-fields.py
+    language: system
+    pass_filenames: false
+    files: ^src/.*\.py$
+
+  - id: pylint
+    name: pylint (unused-private-member)
+    entry: uv run pylint src/
+    language: system
+    pass_filenames: false
+    types_or: [python]
+    files: ^src/.*\.py$
+
+  - id: ty
+    name: ty
+    entry: uv run ty check src/
+    language: system
+    pass_filenames: false
+    files: ^src/.*\.py$
+
+  - id: check-encapsulation-violations
+    name: check encapsulation violations (protected attribute access)
+    entry: python checks/check-encapsulation-violations.py
+    language: system
+    files: ^src/.*\.py$
+
+  - id: vulture
+    name: vulture (find dead code)
+    # threshold and ignore_decorators live in [tool.vulture] in pyproject.toml
+    entry: uv run vulture src/ .vulture-whitelist.py
+    language: system
+    pass_filenames: false
+    types_or: [python]
+
+  - id: pytest
+    name: pytest
+    entry: uv run pytest tests/ -n auto --testmon --no-cov
+    language: system
+    pass_filenames: false
+    stages: [pre-commit]
+    files: '^(src|tests)/.*\.py$'
+    always_run: true
+
+  # DISABLED: Integration tests - temporarily disabled
+  # - id: pytest-integration
+  #   name: pytest integration tests
+  #   entry: bash -c 'docker-compose --file docker-compose-test.yaml up --build --abort-on-container-exit --exit-code-from udan-tests && docker-compose --file docker-compose-test.yaml down --volumes'
+  #   language: system
+  #   pass_filenames: false
+  #   stages: [pre-commit]

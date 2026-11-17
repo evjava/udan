@@ -1,0 +1,28 @@
+# Test resource for yaml_glob tests
+repos:
+  - repo: local
+    hooks:
+      - id: hook-a
+        name: Hook A
+        entry: python scripts/a.py
+        language: system
+      - id: hook-b
+        name: Hook B
+        entry: python scripts/b.py
+        language: system
+  - repo: https://github.com/example/example
+    rev: v1.0.0
+    hooks:
+      - id: external-hook
+        name: External Hook
+        entry: external-check
+        language: python
+  - repo: local
+    hooks:
+      - id: hook-c
+        name: Hook C
+        entry: bash scripts/c.sh
+        language: system
+
+defaults:
+  fail_fast: true

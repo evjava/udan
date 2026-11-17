@@ -43,6 +43,8 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.testmondata
+.testmondata-journal
 cover/
 
 # Translations
@@ -61,9 +63,6 @@ instance/
 
 # Scrapy stuff:
 .scrapy
-
-# Sphinx documentation
-docs/_build/
 
 # PyBuilder
 .pybuilder/
@@ -150,3 +149,19 @@ uv.lock
 *.pyo
 *.pyd
 
+plg_*.py
+plg-*.sh
+ignored
+
+.udan
+coverage.json
+TASKS.md
+for-inspiration/
+.udan_cache
+STATE.md
+i-*.md
+.serena
+*.svg
+tests/resources/table-with-hierarchy.xlsx
+tests/resources/.~lock*
+.testmondata*

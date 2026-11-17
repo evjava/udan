@@ -1,14 +1,26 @@
 [project]
-name = "data-navigator"
-version = "0.1.0"
-description = "A data navigator tool"
+name = "udan"
+version = "1.0.1"
+description = "A universal data navigator tool"
 readme = "README.md"
-requires-python = ">=3.11"
-dependencies = []
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fire>=0.5.0",
+    "pydantic~=2.12.5",
+    "pydantic-settings~=2.8.0",
+    "joblib~=1.5.3",
+    "lark~=1.3.1",
+    "tabulate>=0.9.0",
+    "pyyaml>=6.0.0",
+    "python-levenshtein>=0.27.3",
+]
+
+[project.scripts]
+udan = "udan.parsing.main:main_io"
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=7.0.0",
+analysis = [
+    "pydeps>=1.0.0",
 ]
 
 [build-system]
@@ -16,12 +28,144 @@ requires = ["uv_build"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
-module-name = "data_navigator"
+module-name = "udan"
 module-root = "src"
 
 [tool.ruff]
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]
+select = ["E", "F", "I", "UP", "PLC", "PLR", "C90", "TID"]
+# Enable PEP 585 (UP006) for built-in type hints
+extend-select = ["UP006"]
+# Ignore UP047 (use newer type parameter syntax) - not compatible with mypy v1.19.1
+ignore = ["UP047"]
 
+# TID252: ban all relative imports (default 'parents' would allow 'from . import x')
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+# Pylint rule configuration - limits set to match existing codebase
+[tool.ruff.lint.pylint]
+max-args = 9  # Maximum number of arguments in function definition
+max-branches = 17  # Maximum number of branches in function
+max-returns = 10  # Maximum number of return statements in function
+
+# Allow magic values in tests, and allow imports inside fixtures (avoid circular dependencies)
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["PLR2004", "PLC0415"]  # Magic values and fixture imports allowed
+# Allow protected attribute access for internal decorator metadata
+"src/udan/core_tools_loading/io_inspect.py" = ["PLW3201"]
+"src/udan/core_tools_loading/impl_function_injector.py" = ["PLW3201"]
+"src/udan/core_tools_loading/api_annotated.py" = ["PLW3201"]  # This module creates the protected attributes
+
+[tool.ruff.lint.mccabe]
+# Max cyclomatic complexity
+max-complexity = 15
+
+# Whitelist approach (see pylint docs): disable everything, then re-enable only
+# the checks we want. Note that "private" here means name-mangled (`__name`),
+# NOT the single-underscore `_name` convention used elsewhere in this codebase.
+[tool.pylint."messages control"]
+disable = ["all"]
+enable = ["unused-private-member"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Note: Coverage is optional - can be disabled with --no-cov
+# Example: uv run pytest --no-cov
+addopts = [
+    "--cov=src/udan",
+    "--cov-report=term-missing",
+    "--cov-report=json",
+    "--cov-report=html",
+    "--cov-fail-under=70",
+]
+
+[tool.codespell]
+skip = '*.lock,*.db,*.sqlite,*-lock.json'
+check-filenames = false
+dictionary = '.codespell-dictionary.txt'
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+    "*/__pycache__/*",
+    "*/site-packages/*",
+    "*/.venv/*",
+    "*/venv/*",
+    "*/__init__.py",
+]
+
+[tool.coverage.report]
+sort = "cover"
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstract",
+    "@abstractmethod",
+    "if DEBUG",
+    "if not DEBUG",
+    "if self.is_debug",
+    "if self.debug",
+    "logger.debug",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.0.0",
+    "pytest-testmon>=2.0.0",
+    "httpx2>=2.12.0",
+    "types-tabulate>=0.9.0",
+    "pylint>=4.0.4",
+    "pympler>=1.1",
+    "ty>=0.0.29",
+    "ruff>=0.15.0",
+    "vulture>=2.0.0",
+    "codespell>=2.3.0",
+    # Required at dev/check time by src/udan/plugins_tools_examples/plugins_dev.py (tree_sitter grammars);
+    # optional at runtime - the loader skips the plugins with a warning when absent
+    "tree-sitter>=0.23.0",
+    # Capped below 1.0: 1.x stopped bundling the grammars and downloads them from
+    # GitHub releases on first use, which breaks offline dev/CI machines
+    # (0.13.0 is the last release that ships the grammars inside the wheel)
+    "tree-sitter-language-pack>=0.13.0,<1.0.0",
+]
+
+[tool.ty]
+overrides = [
+    { include = ["src/udan/attributes/impl_attribute_runtime.py"], rules = { "incompatible-method-override" = "ignore", "missing-attribute" = "ignore" } },
+    { include = ["src/udan/core/impl_render.py"], rules = { "invalid-argument-type" = "ignore" } },
+    { include = ["src/udan/core_tools_loading/impl_function_injector.py"], rules = { "invalid-argument-type" = "ignore", "missing-attribute" = "ignore" } },
+    { include = ["src/udan/core/impl_operators_engine.py"], rules = { "missing-attribute" = "ignore" } },
+    # decorate_query_processor / unwrap_query_processor in the module replace
+    # the resolver's methods in place: what they assign answers the decorated
+    # signatures (resolve_query's tree and context, answer_miss's miss) - the
+    # receiver is deliberately not re-bound, since instance-attribute lookup
+    # is how the decoration is found
+    { include = ["src/udan/plugins_help_sugar/plugins_help_sugar.py"], rules = { "invalid-assignment" = "ignore" } }
+]
+
+[tool.vulture]
+# 60 catches unused methods/functions/classes/attributes/variables;
+# unused imports (90) and parameters (100) are above this anyway.
+# False positives go to .vulture-whitelist.py, not here.
+min_confidence = 0
+ignore_names = []
+ignore_decorators = [
+    "@annotated",             # tools are discovered and registered dynamically
+    "@annotated_dependency",  # dependency providers are resolved by the injector
+    "@provide",               # IOC provider methods are called by the DI container
+    "@decorate",              # IOC routing decorations are applied by the DI container
+    "@model_validator",       # pydantic validators run during model validation
+]
+paths = ["src"]
+exclude = ["src/udan/parsing/impl_utils_parsing.py"]
