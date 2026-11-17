@@ -20,6 +20,14 @@ Example violation:
     except ImportError:
         RepositoryAnalyzer = None
 
+Exclusions (EXCLUSIONS_ADHOC below) exist for the rare import that must sit inside
+try/except because the module has to load without the dependency - a plugin family
+other plugins import from, whose tools degrade to a call-time error instead of
+taking three plugin families down with them. Entries are
+'src/path/file.py:<num>:<stripped content>' (matched by content, so a line that
+moves keeps its exclusion) or 'src/path/file.py:*' for a whole file. Violation
+output uses the same format - copy-paste it directly into EXCLUSIONS_ADHOC.
+
 This is similar to check-no-lazy-imports-in-tests.py and forbid-type-checking.
 """
 
@@ -30,6 +38,37 @@ from pathlib import Path
 # Once inside a try statement, the whole subtree is forbidden: body, handlers,
 # else and finally branches, and anything nested deeper.
 _TRY_PARENTS: tuple[type[ast.stmt], ...] = (ast.Try, ast.TryStar)
+
+# fmt: off
+EXCLUSIONS_ADHOC: set[str] = {
+    # plugins_dev.py: tree-sitter lives in the dev dependency group, not
+    # [project.dependencies], and the module still has to import without it -
+    # plugins_org and plugins_markdown take Duplication from it, so a plain
+    # top-level import turns one missing package into three unloaded plugin
+    # families ("Failed to load module ...: No module named tree_sitter" on a
+    # fresh system). The import degrades to the _TREE_SITTER_AVAILABLE flag and
+    # ssearch reports the missing dependency when it is called.
+    "src/udan/plugins_tools_examples/plugins_dev.py:11:from tree_sitter import Query, QueryCursor",
+    "src/udan/plugins_tools_examples/plugins_dev.py:12:from tree_sitter_language_pack import SupportedLanguage, get_language, get_parser",
+}
+# fmt: on
+
+# entry -> 'file.py:content' matching key (line number dropped, content kept)
+_ENTRY_KEYS: dict[str, str] = {}
+# files with a ':*' whole-file exclusion
+_FILE_WILDCARDS: set[str] = set()
+for _entry in EXCLUSIONS_ADHOC:
+    if _entry.endswith(":*"):
+        _FILE_WILDCARDS.add(_entry.rsplit(":*", 1)[0])
+        continue
+    _parts = _entry.split(":", 2)  # src/path/file.py : 11 : content
+    if len(_parts) == 3:  # noqa: PLR2004
+        _ENTRY_KEYS[_entry] = f"{_parts[0]}:{_parts[2]}"
+_CONTENT_EXCLUSIONS: set[str] = set(_ENTRY_KEYS.values())
+
+# Matching state, consumed by find_stale_exclusions at the end of the run
+_EXCLUSIONS_MATCHED: set[str] = set()
+_FILES_CHECKED: set[str] = set()
 
 
 def find_imports_in_try(tree: ast.Module) -> list[int]:
@@ -63,8 +102,12 @@ def check_file(file_path: str) -> list[tuple[int, str]]:
         file_path: Path to the file to check
 
     Returns:
-        List of (line_number, source_line) tuples for each violation
+        List of (line_number, source_line) tuples for each violation not excluded
     """
+    _FILES_CHECKED.add(file_path)
+    if file_path in _FILE_WILDCARDS:
+        return []
+
     path = Path(file_path)
     try:
         source = path.read_text(encoding="utf-8")
@@ -77,7 +120,32 @@ def check_file(file_path: str) -> list[tuple[int, str]]:
         return []
 
     lines = source.splitlines()
-    return [(line_no, lines[line_no - 1].strip()) for line_no in find_imports_in_try(tree)]
+    violations = []
+    for line_no in find_imports_in_try(tree):
+        source_line = lines[line_no - 1].strip()
+        key = f"{file_path}:{source_line}"
+        if key in _CONTENT_EXCLUSIONS:
+            _EXCLUSIONS_MATCHED.add(key)
+            continue
+        violations.append((line_no, source_line))
+    return violations
+
+
+def find_stale_exclusions() -> list[str]:
+    """Find exclusions whose import no longer sits inside try/except.
+
+    Only files this run checked count - the hook passes a file before its stale
+    exclusion is reported, so an exclusion for an untouched file never fires.
+
+    Returns:
+        EXCLUSIONS_ADHOC entries to remove
+    """
+    stale = []
+    for entry, key in _ENTRY_KEYS.items():
+        file_path = entry.rsplit(":", 2)[0]
+        if file_path in _FILES_CHECKED and key not in _EXCLUSIONS_MATCHED:
+            stale.append(entry)
+    return sorted(stale)
 
 
 def main() -> int:
@@ -96,8 +164,16 @@ def main() -> int:
                 print(
                     f"{file_path}:{line_no}: import inside try/except: '{source_line}'\n"
                     f"  → imports must live at module top level, outside try/except\n"
-                    f"  → For optional dependencies use importlib.util.find_spec (src) or pytest.importorskip (tests)"
+                    f"  → For optional dependencies use importlib.util.find_spec (src) or pytest.importorskip (tests)\n"
+                    f"  → If the module has to load without the dependency, add the line above to EXCLUSIONS_ADHOC in checks/check-no-imports-in-try-except.py"
                 )
+
+    stale = find_stale_exclusions()
+    if stale:
+        exit_code = 1
+        print("\nStale exclusions (the import no longer sits inside try/except):")
+        for entry in stale:
+            print(f"  '{entry}' - remove it from EXCLUSIONS_ADHOC in checks/check-no-imports-in-try-except.py")
 
     return exit_code
 

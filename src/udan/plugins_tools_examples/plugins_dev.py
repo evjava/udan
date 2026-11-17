@@ -7,8 +7,17 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast, get_args
 
-from tree_sitter import Query, QueryCursor
-from tree_sitter_language_pack import SupportedLanguage, get_language, get_parser
+try:
+    from tree_sitter import Query, QueryCursor
+    from tree_sitter_language_pack import SupportedLanguage, get_language, get_parser
+
+    _TREE_SITTER_AVAILABLE = True
+except ModuleNotFoundError:
+    # tree-sitter sits in the dev dependency group, not [project.dependencies], so a fresh
+    # system without `uv sync` does not have it. The module still has to import - plugins_org
+    # and plugins_markdown take Duplication from here - so availability degrades to this flag
+    # and ssearch reports the missing dependency when it is called.
+    _TREE_SITTER_AVAILABLE = False
 
 from udan.core_tools_loading.api_annotated import annotated
 from udan.plugins_tools_examples.api_types import ASTChunk
@@ -209,6 +218,12 @@ def ssearch(glob: str, pattern: str = "", lang: str = "") -> Iterable[ASTChunk]:
         pattern: Tree-sitter S-expression query or shorthand (e.g. "def __init__", "class Foo", "FROM").
         lang: Language override (python, json, dockerfile, toml). Auto-detected from extension if empty.
     """
+    if not _TREE_SITTER_AVAILABLE:
+        raise ImportError(
+            "ssearch needs tree-sitter and tree-sitter-language-pack"
+            " (dev dependency group): run `uv sync` to install them"
+        )
+
     glob_path = Path(glob)
     if glob_path.is_absolute():
         # Absolute path: split into base dir + pattern

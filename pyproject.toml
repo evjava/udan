@@ -132,7 +132,8 @@ dev = [
     "vulture>=2.0.0",
     "codespell>=2.3.0",
     # Required at dev/check time by src/udan/plugins_tools_examples/plugins_dev.py (tree_sitter grammars);
-    # optional at runtime - the loader skips the plugins with a warning when absent
+    # optional at runtime - plugins_dev imports without them (ssearch reports the missing
+    # dependency at call time), so the loader never warns about them
     "tree-sitter>=0.23.0",
     # Capped below 1.0: 1.x stopped bundling the grammars and downloads them from
     # GitHub releases on first use, which breaks offline dev/CI machines
