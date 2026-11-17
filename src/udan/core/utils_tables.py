@@ -66,4 +66,3 @@ def rows_to_dicts(rows: list[list], has_header: bool = True, header_row: int = 0
     else:
         # No headers, return rows as dicts with column indices as keys
         return [{str(i): val for i, val in enumerate(row)} for row in rows]
-
